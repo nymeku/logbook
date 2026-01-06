@@ -1,0 +1,1 @@
+export const STRIPE_API_KEY = "stripe_api_key";
