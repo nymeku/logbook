@@ -12,7 +12,7 @@ const fetchCustomersPage = async ({
   }
   const customers = await stripe.customers.list({
     ...params,
-    limit: 10,
+    limit: 100,
   });
 
   return customers;
