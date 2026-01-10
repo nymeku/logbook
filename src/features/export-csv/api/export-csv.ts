@@ -1,5 +1,45 @@
 import type Stripe from "stripe";
 
+/**
+ * Retourne les données CSV dans le bon ordre et formatage à partir d'une adresse Stripe.
+ * @param address L'adresse au format Stripe.
+ * @returns tableau de chaînes correspondant : [Prénom, Nom, Rue, Code postal, Ville, Dép/Region, Pays]
+ */
+export function getCsvRowFromAddress(
+  address: Address | null | undefined
+): string[] {
+  if (!address) {
+    return ["", "", "", "", "", "", ""];
+  }
+  // Prénom, Nom, Rue, Code postal, Ville, Dép/Region, Pays (dans cet ordre)
+  // Pas d'info directe pour prénom/nom : à adapter ou laisser vide selon les données réelles
+  // city = Ville, state = Dép/Region, line1/line2 = Rue, postal_code = Code postal, country = Pays
+
+  // Pour bonus : concaténer "city state" dans "Ville" si country == "US"
+  let ville = address.city || "";
+  const region = address.state || "";
+
+  if (address.country === "US" && ville && region) {
+    ville = `${ville} ${region}`;
+  }
+
+  // Rue : line1 + (line2 si existe)
+  let rue = address.line1 || "";
+  if (address.line2) {
+    rue = rue ? `${rue}, ${address.line2}` : address.line2;
+  }
+
+  return [
+    "", // Prénom (si info ailleurs, à remplir)
+    "", // Nom (si info ailleurs, à remplir)
+    rue,
+    address.postal_code || "",
+    ville,
+    region,
+    address.country || "",
+  ];
+}
+
 // Interface Address (copiée de customers-list.tsx)
 interface Address {
   city: string | null;

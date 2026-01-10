@@ -1,28 +1,32 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { getStripeClient } from "../../../lib/stripe";
-import type Stripe from "stripe";
+import Stripe from "stripe";
 
-const getCustomers = async ({
+const getSubscriptions = async ({
   pageParam,
-}: { pageParam?: string } = {}): Promise<Stripe.ApiList<Stripe.Customer>> => {
+}: { pageParam?: string } = {}): Promise<
+  Stripe.ApiList<Stripe.Subscription>
+> => {
   const stripe = getStripeClient();
-  const params: Stripe.CustomerListParams = {};
+  const params: Stripe.SubscriptionListParams = {};
   if (pageParam) {
     params.starting_after = pageParam;
   }
-  const customers = await stripe.customers.list({
+  const subscriptions = await stripe.subscriptions.list({
     ...params,
     limit: 100,
+    expand: ["data.customer"],
+    status: "all",
   });
 
-  return customers;
+  return subscriptions;
 };
 
-export const useCustomers = () =>
+export const useSubscriptions = () =>
   useInfiniteQuery({
-    queryKey: ["customers"],
+    queryKey: ["subscriptions"],
     queryFn: ({ pageParam }: { pageParam?: string }) =>
-      getCustomers({ pageParam }),
+      getSubscriptions({ pageParam }),
     getNextPageParam: (lastPage) => {
       if (lastPage.has_more && lastPage.data.length > 0) {
         return lastPage.data[lastPage.data.length - 1].id;
@@ -32,4 +36,4 @@ export const useCustomers = () =>
     initialPageParam: undefined,
   });
 
-export default getCustomers;
+export default getSubscriptions;
