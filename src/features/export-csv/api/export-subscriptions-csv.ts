@@ -1,20 +1,14 @@
 import type Stripe from "stripe";
 
-/**
- * Extrait le prénom et le nom à partir d'une string (shipping.name).
- * - Si la string contient plusieurs mots : le premier = prénom, le reste = nom.
- * - Si la string contient un seul mot, prénom = string, nom = "".
- * - Si la string est vide ou non définie, les deux sont "".
- */
-function splitName(fullName: string | undefined | null): [string, string] {
-  if (!fullName) return ["", ""];
-  const parts = fullName.trim().split(/\s+/);
-  if (parts.length === 0) return ["", ""];
-  if (parts.length === 1) return [parts[0], ""];
-  return [parts[0], parts.slice(1).join(" ")];
-}
-
-// Interface Address (copiée de customers-list.tsx)
+const csvHeaders = [
+  "name",
+  "postal_code",
+  "line1",
+  "line2",
+  "city",
+  "state",
+  "country",
+] as const;
 interface Address {
   city: string | null;
   country: string | null;
@@ -23,8 +17,6 @@ interface Address {
   postal_code: string | null;
   state: string | null;
 }
-
-// Interface Shipping (copiée de customers-list.tsx)
 interface Shipping {
   address?: Address;
   carrier?: string | null;
@@ -33,42 +25,33 @@ interface Shipping {
   tracking_number?: string | null;
 }
 
-/**
- * Retourne les données CSV dans le bon ordre et formatage à partir de shipping.
- * @param shipping L'objet shipping (contenant address et name).
- * @returns tableau de chaînes correspondant : [Prénom, Nom, Rue, Code postal, Ville, Dép/Region, Pays]
- */
+const removeAccents = (str: string | null | undefined) => {
+  return str?.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+};
+
+const formatCityName = (shipping: Shipping | null | undefined) => {
+  if (
+    ["US", "CA", "AU", "GB", "NZ"].includes(shipping?.address?.country || "") &&
+    shipping?.address?.city &&
+    shipping?.address?.state
+  ) {
+    return `${shipping?.address?.city} ${shipping?.address?.state}`;
+  }
+  return shipping?.address?.city || "";
+};
+
 export function getCsvRowFromShipping(
   shipping: Shipping | null | undefined
-): string[] {
-  const [prenom, nom] = splitName(shipping?.name);
-  const address = shipping?.address;
-  if (!address) {
-    return [prenom, nom, "", "", "", "", ""];
-  }
-  // Ville/Region logiques
-  let ville = address.city || "";
-  const region = address.state || "";
-
-  if (address.country === "US" && ville && region) {
-    ville = `${ville} ${region}`;
-  }
-
-  // Rue : line1 + (line2 si existe)
-  let rue = address.line1 || "";
-  if (address.line2) {
-    rue = rue ? `${rue}, ${address.line2}` : address.line2;
-  }
-
-  return [
-    prenom,
-    nom,
-    rue,
-    address.postal_code || "",
-    ville,
-    region,
-    address.country || "",
-  ];
+): Record<(typeof csvHeaders)[number], string> {
+  return {
+    name: removeAccents(shipping?.name) || "",
+    postal_code: `${shipping?.address?.postal_code}` || "",
+    line1: removeAccents(shipping?.address?.line1) || "",
+    line2: removeAccents(shipping?.address?.line2) || "",
+    city: formatCityName(shipping) || "",
+    state: shipping?.address?.state || "",
+    country: shipping?.address?.country || "",
+  };
 }
 
 // Helper: Échapper les valeurs CSV (gérer les virgules, guillemets, retours à la ligne)
@@ -94,28 +77,15 @@ export const exportSubscriptionsToCsv = (
   subscriptions: Stripe.Subscription[],
   filename: string = "subscriptions-export.csv"
 ): void => {
-  // En-têtes CSV - respect strict de l'instruction
-  const headers = [
-    "Prénom",
-    "Nom",
-    "Rue",
-    "Code postal",
-    "Ville",
-    "Dép/Region",
-    "Pays",
-  ];
-
-  // Créer les lignes CSV
   const rows = subscriptions.map((subscription) => {
     const customer = subscription.customer as Stripe.Customer;
     const shipping = customer.shipping as Shipping | undefined;
     return getCsvRowFromShipping(shipping);
   });
 
-  // Combiner les en-têtes et les lignes
   const csvContent = [
-    headers.join(","),
-    ...rows.map((row) => row.map(escapeCsvValue).join(",")),
+    csvHeaders.join(","),
+    ...rows.map((row) => Object.values(row).map(escapeCsvValue).join(",")),
   ].join("\n");
 
   // Créer un blob et déclencher le téléchargement
