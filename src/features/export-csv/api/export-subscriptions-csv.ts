@@ -45,19 +45,30 @@ export function getCsvRowFromShipping(
 ): Record<(typeof csvHeaders)[number], string> {
   return {
     name: removeAccents(shipping?.name) || "",
-    postal_code: `${shipping?.address?.postal_code}` || "",
+    postal_code:
+      shipping?.address?.postal_code != null
+        ? shipping.address.postal_code.padStart(5, "0")
+        : "",
     line1: removeAccents(shipping?.address?.line1) || "",
     line2: removeAccents(shipping?.address?.line2) || "",
-    city: formatCityName(shipping) || "",
-    state: shipping?.address?.state || "",
+    city: removeAccents(formatCityName(shipping)) || "",
+    state: removeAccents(shipping?.address?.state) || "",
     country: shipping?.address?.country || "",
   };
 }
 
 // Helper: Échapper les valeurs CSV (gérer les virgules, guillemets, retours à la ligne)
-const escapeCsvValue = (value: string | null | undefined): string => {
+// For postal_code, always force Excel to treat as text
+const escapeCsvValue = (
+  value: string | null | undefined,
+  columnName?: string
+): string => {
   if (value === null || value === undefined) return "";
   const stringValue = String(value);
+  // Always wrap postal_code column in ="value" to preserve leading zeros in Excel
+  if (columnName === "postal_code" && stringValue !== "") {
+    return `="${stringValue.replace(/"/g, '""')}"`;
+  }
   if (
     stringValue.includes(",") ||
     stringValue.includes('"') ||
@@ -85,7 +96,9 @@ export const exportSubscriptionsToCsv = (
 
   const csvContent = [
     csvHeaders.join(","),
-    ...rows.map((row) => Object.values(row).map(escapeCsvValue).join(",")),
+    ...rows.map((row) =>
+      csvHeaders.map((header) => escapeCsvValue(row[header], header)).join(",")
+    ),
   ].join("\n");
 
   // Créer un blob et déclencher le téléchargement
