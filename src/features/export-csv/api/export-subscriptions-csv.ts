@@ -26,7 +26,13 @@ interface Shipping {
 }
 
 const removeAccents = (str: string | null | undefined) => {
-  return str?.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (!str) return str;
+  // First replace special ß/ẞ with 'ss'
+  let s = str.replace(/ẞ/g, "SS").replace(/ß/g, "ss");
+  // optionally: force ẞ to 'ss' (lower), but in real German, SS is acceptable (uppercase ß)
+  // Next, normalize and strip accents
+  s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return s;
 };
 
 const formatCityName = (shipping: Shipping | null | undefined) => {
