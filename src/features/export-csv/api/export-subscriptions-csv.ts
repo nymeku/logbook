@@ -27,10 +27,7 @@ interface Shipping {
 
 const removeAccents = (str: string | null | undefined) => {
   if (!str) return str;
-  // First replace special ß/ẞ with 'ss'
   let s = str.replace(/ẞ/g, "SS").replace(/ß/g, "ss");
-  // optionally: force ẞ to 'ss' (lower), but in real German, SS is acceptable (uppercase ß)
-  // Next, normalize and strip accents
   s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   return s;
 };
@@ -51,10 +48,7 @@ export function getCsvRowFromShipping(
 ): Record<(typeof csvHeaders)[number], string> {
   return {
     name: removeAccents(shipping?.name) || "",
-    postal_code:
-      shipping?.address?.postal_code != null
-        ? shipping.address.postal_code.padStart(5, "0")
-        : "",
+    postal_code: shipping?.address?.postal_code || "",
     line1: removeAccents(shipping?.address?.line1) || "",
     line2: removeAccents(shipping?.address?.line2) || "",
     city: removeAccents(formatCityName(shipping)) || "",
@@ -63,20 +57,14 @@ export function getCsvRowFromShipping(
   };
 }
 
-// Helper: Échapper les valeurs CSV (gérer les virgules, guillemets, retours à la ligne)
-// For postal_code, always force Excel to treat as text
 const escapeCsvValue = (
   value: string | null | undefined,
-  columnName?: string
+  separator: string = ","
 ): string => {
   if (value === null || value === undefined) return "";
   const stringValue = String(value);
-  // Always wrap postal_code column in ="value" to preserve leading zeros in Excel
-  if (columnName === "postal_code" && stringValue !== "") {
-    return `="${stringValue.replace(/"/g, '""')}"`;
-  }
   if (
-    stringValue.includes(",") ||
+    stringValue.includes(separator) ||
     stringValue.includes('"') ||
     stringValue.includes("\n")
   ) {
@@ -86,29 +74,20 @@ const escapeCsvValue = (
 };
 
 /**
- * Exporte la liste des subscriptions au format CSV et déclenche le téléchargement
- * @param subscriptions - Tableau de subscriptions Stripe à exporter
- * @param filename - Nom du fichier (optionnel, par défaut: "subscriptions-export.csv")
+ * Wraps a value as an Excel/Numbers formula that returns a text string.
+ * e.g. "06000" → ‹="06000"› which Excel evaluates as the string "06000",
+ * preserving any leading zeros.
  */
-export const exportSubscriptionsToCsv = (
-  subscriptions: Stripe.Subscription[],
-  filename: string = "subscriptions-export.csv"
-): void => {
-  const rows = subscriptions.map((subscription) => {
-    const customer = subscription.customer as Stripe.Customer;
-    const shipping = customer.shipping as Shipping | undefined;
-    return getCsvRowFromShipping(shipping);
+const asFormula = (value: string): string => {
+  if (!value) return "";
+  return `="${value}"`;
+};
+
+const triggerDownload = (content: string, filename: string): void => {
+  const BOM = "\uFEFF";
+  const blob = new Blob([BOM + content], {
+    type: "text/csv;charset=utf-8;",
   });
-
-  const csvContent = [
-    csvHeaders.join(","),
-    ...rows.map((row) =>
-      csvHeaders.map((header) => escapeCsvValue(row[header], header)).join(",")
-    ),
-  ].join("\n");
-
-  // Créer un blob et déclencher le téléchargement
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
 
@@ -119,6 +98,81 @@ export const exportSubscriptionsToCsv = (
   link.click();
   document.body.removeChild(link);
 
-  // Nettoyer l'URL de l'objet
   URL.revokeObjectURL(url);
+};
+
+interface CsvOptions {
+  separator: string;
+  useFormula: boolean;
+}
+
+const buildCsvContent = (
+  subscriptions: Stripe.Subscription[],
+  options: CsvOptions
+): string => {
+  const { separator, useFormula } = options;
+
+  const rows = subscriptions.map((subscription) => {
+    const customer = subscription.customer as Stripe.Customer;
+    const shipping = customer.shipping as Shipping | undefined;
+    return getCsvRowFromShipping(shipping);
+  });
+
+  return [
+    csvHeaders.join(separator),
+    ...rows.map((row) =>
+      csvHeaders
+        .map((header) => {
+          let value = row[header];
+          if (useFormula && header === "postal_code" && value) {
+            value = asFormula(value);
+          }
+          return escapeCsvValue(value, separator);
+        })
+        .join(separator)
+    ),
+  ].join("\n");
+};
+
+/**
+ * Export 1 : CSV séparé par des virgules, avec formule ="value" pour postal_code.
+ * La formule force Excel/Numbers à traiter le code postal comme du texte,
+ * préservant les zéros initiaux (ex: 06000).
+ */
+export const exportCsvCommaFormula = (
+  subscriptions: Stripe.Subscription[],
+  filename: string = "subscriptions-formule-virgule.csv"
+): void => {
+  triggerDownload(
+    buildCsvContent(subscriptions, { separator: ",", useFormula: true }),
+    filename
+  );
+};
+
+/**
+ * Export 2 : CSV séparé par des points-virgules, avec formule ="value" pour postal_code.
+ * Le point-virgule est le séparateur par défaut d'Excel en configuration française.
+ */
+export const exportCsvSemicolonFormula = (
+  subscriptions: Stripe.Subscription[],
+  filename: string = "subscriptions-formule-pointvirgule.csv"
+): void => {
+  triggerDownload(
+    buildCsvContent(subscriptions, { separator: ";", useFormula: true }),
+    filename
+  );
+};
+
+/**
+ * Export 3 : CSV standard séparé par des virgules, sans formule.
+ * Export de référence / fallback.
+ */
+export const exportCsvStandard = (
+  subscriptions: Stripe.Subscription[],
+  filename: string = "subscriptions-standard.csv"
+): void => {
+  triggerDownload(
+    buildCsvContent(subscriptions, { separator: ",", useFormula: false }),
+    filename
+  );
 };
