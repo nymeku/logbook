@@ -69,6 +69,18 @@ const getRowHighlight = (status: Stripe.Subscription.Status) => {
   return { bg: undefined, color: undefined };
 };
 
+// Helper: Determine if a postal code starts with "0"
+const isZeroPostalCode = (postal_code?: string | null) => {
+  if (!postal_code) return false;
+  // Trim possible quotes/formulas and check first actual char
+  let s = postal_code.trim();
+  // Remove common Excel formula for postal codes
+  if (s.startsWith('="') && s.endsWith('"')) {
+    s = s.slice(2, -1);
+  }
+  return s.startsWith("0");
+};
+
 const SubscriptionsList = () => {
   const subscriptionsQuery = useSubscriptions();
   const subscriptions = subscriptionsQuery.data?.pages.flatMap(
@@ -110,10 +122,28 @@ const SubscriptionsList = () => {
         </Table.Header>
         <Table.Body>
           {subscriptions?.map((subscription: Stripe.Subscription) => {
-            // Subscription.customer can be a string or a Customer object: for expand, it's the full object.
             const customer = subscription.customer as Stripe.Customer;
             const shipping = customer.shipping as Shipping | undefined;
             const { bg, color } = getRowHighlight(subscription.status);
+            const postalCode = shipping?.address?.postal_code || "";
+            const isViolet = isZeroPostalCode(postalCode);
+
+            // Cell styles for postal_code (when in the address)
+            // We assume postal_code appears in "Shipping Address", which is a single cell string built by formatShippingAddress
+            // But in this table, we do NOT show postal_code as its own cell ("Shipping Address" contains it together with city/state)
+            // Therefore, user wants the ENTIRE row if postal_code starts with "0" to have the Shipping Address cell in violet.
+
+            // -- Actually: According to original, the only cells styled individually are those rendered as cells.
+            // There is no separate cell for postal_code, and postal_code only appears within formatted shipping address.
+            // So: Let's highlight the "Shipping Address" cell in violet if postal_code starts with 0.
+
+            // Define violet and fallback styles
+            const violetCellProps = {
+              bg: "purple.100",
+              color: "purple.800",
+              fontWeight: "bold",
+            };
+
             return (
               <Table.Row key={subscription.id} bg={bg} color={color}>
                 <Table.Cell>
@@ -138,7 +168,10 @@ const SubscriptionsList = () => {
                 </Table.Cell>
                 <Table.Cell>{customer.name || "-"}</Table.Cell>
                 <Table.Cell>{shipping?.name || "-"}</Table.Cell>
-                <Table.Cell>
+                <Table.Cell
+                  // Si postal_code commence par 0, violet même si ligne jaune
+                  {...(isViolet ? violetCellProps : {})}
+                >
                   {shipping ? formatShippingAddress(shipping) : "-"}
                 </Table.Cell>
                 <Table.Cell>{shipping?.carrier || "-"}</Table.Cell>

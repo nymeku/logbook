@@ -73,16 +73,6 @@ const escapeCsvValue = (
   return stringValue;
 };
 
-/**
- * Wraps a value as an Excel/Numbers formula that returns a text string.
- * e.g. "06000" → ‹="06000"› which Excel evaluates as the string "06000",
- * preserving any leading zeros.
- */
-const asFormula = (value: string): string => {
-  if (!value) return "";
-  return `="${value}"`;
-};
-
 const triggerDownload = (content: string, filename: string): void => {
   const BOM = "\uFEFF";
   const blob = new Blob([BOM + content], {
@@ -103,14 +93,13 @@ const triggerDownload = (content: string, filename: string): void => {
 
 interface CsvOptions {
   separator: string;
-  useFormula: boolean;
 }
 
 const buildCsvContent = (
   subscriptions: Stripe.Subscription[],
   options: CsvOptions
 ): string => {
-  const { separator, useFormula } = options;
+  const { separator } = options;
 
   const rows = subscriptions.map((subscription) => {
     const customer = subscription.customer as Stripe.Customer;
@@ -123,10 +112,7 @@ const buildCsvContent = (
     ...rows.map((row) =>
       csvHeaders
         .map((header) => {
-          let value = row[header];
-          if (useFormula && header === "postal_code" && value) {
-            value = asFormula(value);
-          }
+          const value = row[header];
           return escapeCsvValue(value, separator);
         })
         .join(separator)
@@ -143,10 +129,7 @@ export const exportCsvCommaFormula = (
   subscriptions: Stripe.Subscription[],
   filename: string = "subscriptions-formule-virgule.csv"
 ): void => {
-  triggerDownload(
-    buildCsvContent(subscriptions, { separator: ",", useFormula: true }),
-    filename
-  );
+  triggerDownload(buildCsvContent(subscriptions, { separator: "," }), filename);
 };
 
 /**
@@ -157,10 +140,7 @@ export const exportCsvSemicolonFormula = (
   subscriptions: Stripe.Subscription[],
   filename: string = "subscriptions-formule-pointvirgule.csv"
 ): void => {
-  triggerDownload(
-    buildCsvContent(subscriptions, { separator: ";", useFormula: true }),
-    filename
-  );
+  triggerDownload(buildCsvContent(subscriptions, { separator: ";" }), filename);
 };
 
 /**
@@ -171,8 +151,5 @@ export const exportCsvStandard = (
   subscriptions: Stripe.Subscription[],
   filename: string = "subscriptions-standard.csv"
 ): void => {
-  triggerDownload(
-    buildCsvContent(subscriptions, { separator: ",", useFormula: false }),
-    filename
-  );
+  triggerDownload(buildCsvContent(subscriptions, { separator: "," }), filename);
 };

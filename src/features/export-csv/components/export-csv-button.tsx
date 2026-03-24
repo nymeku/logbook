@@ -1,9 +1,5 @@
 import { Box, Button, HStack, Text, VStack } from "@chakra-ui/react";
-import {
-  exportCsvCommaFormula,
-  exportCsvSemicolonFormula,
-  exportCsvStandard,
-} from "../api/export-subscriptions-csv";
+import { exportCsvSemicolonFormula } from "../api/export-subscriptions-csv";
 import { useSubscriptions } from "../../subscriptions/api/get-subscriptions";
 import { Info } from "lucide-react";
 
@@ -28,35 +24,21 @@ const ExportCsvButton = () => {
     <>
       {subscriptions && subscriptions.length > 0 ? (
         <Box spaceY={2}>
-          <Text fontSize="sm" fontWeight="bold">
+          <Text fontSize='sm' fontWeight='bold'>
             {activeCount} subscriptions to export
           </Text>
-          <VStack align="start" gap={2}>
-            <Button
-              onClick={() => handleExport(exportCsvCommaFormula)}
-              size="sm"
-              colorPalette="blue"
-            >
-              Export 1 — Formule (virgule)
-            </Button>
+          <VStack align='start' gap={2}>
             <Button
               onClick={() => handleExport(exportCsvSemicolonFormula)}
-              size="sm"
-              colorPalette="teal"
+              size='sm'
+              colorPalette='teal'
             >
-              Export 2 — Formule (point-virgule)
-            </Button>
-            <Button
-              onClick={() => handleExport(exportCsvStandard)}
-              size="sm"
-              variant="outline"
-            >
-              Export 3 — Standard
+              Export CSV (point-virgule)
             </Button>
           </VStack>
           <HStack>
-            <Info size={16} color="gray" />
-            <Text fontSize="sm" color="gray.500">
+            <Info size={16} color='gray' />
+            <Text fontSize='sm' color='gray.500'>
               canceled subscriptions are not included
             </Text>
           </HStack>
