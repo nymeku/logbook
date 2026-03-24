@@ -1,5 +1,5 @@
 import { Box, Button, HStack, Text, VStack } from "@chakra-ui/react";
-import { exportCsvSemicolonFormula } from "../api/export-subscriptions-csv";
+import { exportCsvCommaFormula } from "../api/export-subscriptions-csv";
 import { useSubscriptions } from "../../subscriptions/api/get-subscriptions";
 import { Info } from "lucide-react";
 
@@ -29,11 +29,11 @@ const ExportCsvButton = () => {
           </Text>
           <VStack align='start' gap={2}>
             <Button
-              onClick={() => handleExport(exportCsvSemicolonFormula)}
+              onClick={() => handleExport(exportCsvCommaFormula)}
               size='sm'
               colorPalette='teal'
             >
-              Export CSV (point-virgule)
+              Export CSV (virgule)
             </Button>
           </VStack>
           <HStack>
