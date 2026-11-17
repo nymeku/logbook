@@ -1,16 +1,17 @@
-import { useLocalStorage } from "react-use";
-import { STRIPE_API_KEY } from "../../constants/stripe-api-key";
+import { Box, Flex } from "@chakra-ui/react";
 import { Navigate } from "react-router";
 import { paths } from "../../config/paths";
+import { getStripeApiKey } from "../../lib/stripe";
 
 export function AuthLayout({ children }: { children: React.ReactNode }) {
-  const [apiKey] = useLocalStorage<string>(STRIPE_API_KEY, "");
-  if (apiKey) {
+  if (getStripeApiKey()) {
     return <Navigate to={paths.app.dashboard.getHref()} replace />;
   }
   return (
-    <div>
-      <main>{children}</main>
-    </div>
+    <Flex minH='100vh' align='center' justify='center' bg='bg.subtle' p={4}>
+      <Box as='main' w='full' maxW='520px' bg='bg' borderWidth='1px' borderRadius='lg' p={8} shadow='sm'>
+        {children}
+      </Box>
+    </Flex>
   );
 }
