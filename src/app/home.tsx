@@ -1,13 +1,7 @@
-import { Link } from "react-router";
+import { Navigate } from "react-router";
 import { paths } from "../config/paths";
 
-const HomeRoute = () => {
-  return (
-    <div>
-      <p>Logbook - Home</p>
-      <Link to={paths.auth.login.getHref()}>Connexion</Link>
-    </div>
-  );
-};
+// Pas de page d'accueil : on va directement au dashboard (qui renvoie au login si besoin).
+const HomeRoute = () => <Navigate to={paths.app.dashboard.getHref()} replace />;
 
 export default HomeRoute;

@@ -1,3 +1,12 @@
+/**
+ * ⚠️ SNAPSHOT — NE PAS IMPORTER. Archive de référence uniquement.
+ *
+ * Ancien export "customers" (Email, Name, Shipping Name, Shipping Address,
+ * Carrier, Tracking #, Phone) — n'était plus branché nulle part.
+ *
+ * Copie verbatim de src/features/export-csv/api/export-csv.ts @ 8d6a9b7.
+ */
+
 import type Stripe from "stripe";
 
 /**

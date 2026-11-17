@@ -1,10 +1,14 @@
-import LoginForm from "../../../features/login/components/login-form";
+import { Heading, Text } from "@chakra-ui/react";
 import { AuthLayout } from "../../../components/layouts/auth-layout";
+import LoginForm from "../../../features/login/components/login-form";
 
 const LoginRoute = () => {
   return (
     <AuthLayout>
-      <h1>Connexion Stripe</h1>
+      <Heading size='xl'>Logbook</Heading>
+      <Text color='fg.muted' mb={6}>
+        Connecte-toi avec une clé API Stripe pour voir et exporter les abonnés.
+      </Text>
       <LoginForm />
     </AuthLayout>
   );
