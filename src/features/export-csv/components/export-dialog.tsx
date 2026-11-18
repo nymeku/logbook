@@ -15,13 +15,15 @@ import {
 } from "@chakra-ui/react";
 import { Download } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
-import type Stripe from "stripe";
 import { toaster } from "../../../components/ui/toaster";
 import type { AllSubscriptionsState } from "../../subscriptions/api/get-subscriptions";
 import {
-  ALL_STATUSES,
-  DEFAULT_EXPORT_STATUSES,
-  STATUS_META,
+  ALL_STATUS_FILTERS,
+  DEFAULT_STATUS_FILTERS,
+  STATUS_FILTER_META,
+  countByStatusFilter,
+  statusFilterOf,
+  type StatusFilter,
 } from "../../subscriptions/api/subscription-row";
 import {
   analyzeExport,
@@ -39,26 +41,29 @@ const nf = new Intl.NumberFormat("fr-FR");
 
 export const ExportDialog = ({ open, onOpenChange, data }: Props) => {
   const exportButtonRef = useRef<HTMLButtonElement>(null);
-  const [statuses, setStatuses] = useState<Set<Stripe.Subscription.Status>>(
-    () => new Set(DEFAULT_EXPORT_STATUSES)
+  const [statuses, setStatuses] = useState<Set<StatusFilter>>(
+    () => new Set(DEFAULT_STATUS_FILTERS)
   );
   const [includeNoAddress, setIncludeNoAddress] = useState(false);
 
   const { rows, isComplete, error } = data;
 
-  const statusCounts = useMemo(() => {
-    const counts = new Map<Stripe.Subscription.Status, number>();
-    for (const r of rows) counts.set(r.status, (counts.get(r.status) ?? 0) + 1);
-    return counts;
-  }, [rows]);
+  const statusCounts = useMemo(() => countByStatusFilter(rows), [rows]);
 
   const byStatus = useMemo(
-    () => rows.filter((r) => statuses.has(r.status)),
+    () => rows.filter((r) => statuses.has(statusFilterOf(r))),
     [rows, statuses]
   );
-  const noAddressCount = byStatus.filter((r) => !r.hasAddress).length;
+  // Les "Annulé sans adresse" cochés explicitement sont toujours exportés ;
+  // la case "sans adresse" ne concerne que les autres statuts.
+  const noAddressCount = byStatus.filter(
+    (r) => !r.hasAddress && r.status !== "canceled"
+  ).length;
   const toExport = useMemo(
-    () => (includeNoAddress ? byStatus : byStatus.filter((r) => r.hasAddress)),
+    () =>
+      includeNoAddress
+        ? byStatus
+        : byStatus.filter((r) => r.hasAddress || r.status === "canceled"),
     [byStatus, includeNoAddress]
   );
 
@@ -67,7 +72,7 @@ export const ExportDialog = ({ open, onOpenChange, data }: Props) => {
     [open, toExport]
   );
 
-  const toggleStatus = (s: Stripe.Subscription.Status) =>
+  const toggleStatus = (s: StatusFilter) =>
     setStatuses((prev) => {
       const next = new Set(prev);
       if (next.has(s)) next.delete(s);
@@ -159,7 +164,7 @@ export const ExportDialog = ({ open, onOpenChange, data }: Props) => {
                     Statuts à inclure
                   </Text>
                   <HStack wrap='wrap' gap={3}>
-                    {ALL_STATUSES.filter((s) => statusCounts.has(s)).map((s) => (
+                    {ALL_STATUS_FILTERS.filter((s) => statusCounts.has(s)).map((s) => (
                       <Checkbox.Root
                         key={s}
                         size='sm'
@@ -169,8 +174,8 @@ export const ExportDialog = ({ open, onOpenChange, data }: Props) => {
                         <Checkbox.HiddenInput />
                         <Checkbox.Control />
                         <Checkbox.Label>
-                          <Badge colorPalette={STATUS_META[s].color} variant='subtle'>
-                            {STATUS_META[s].label}
+                          <Badge colorPalette={STATUS_FILTER_META[s].color} variant='subtle'>
+                            {STATUS_FILTER_META[s].label}
                           </Badge>{" "}
                           <Text as='span' color='fg.muted'>
                             {nf.format(statusCounts.get(s) ?? 0)}

@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import type Stripe from "stripe";
 import { Tooltip } from "../../../components/ui/tooltip";
 import { paths } from "../../../config/paths";
 import { ExportDialog } from "../../../features/export-csv/components/export-dialog";
@@ -33,9 +32,13 @@ import {
   useAllSubscriptions,
 } from "../../../features/subscriptions/api/get-subscriptions";
 import {
-  ALL_STATUSES,
-  DEFAULT_EXPORT_STATUSES,
+  ALL_STATUS_FILTERS,
+  DEFAULT_STATUS_FILTERS,
+  STATUS_FILTER_META,
   STATUS_META,
+  countByStatusFilter,
+  statusFilterOf,
+  type StatusFilter,
   type SubscriptionRow,
 } from "../../../features/subscriptions/api/subscription-row";
 import {
@@ -90,8 +93,8 @@ const DashboardRoute = () => {
 
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
-  const [statuses, setStatuses] = useState<Set<Stripe.Subscription.Status>>(
-    () => new Set(DEFAULT_EXPORT_STATUSES)
+  const [statuses, setStatuses] = useState<Set<StatusFilter>>(
+    () => new Set(DEFAULT_STATUS_FILTERS)
   );
   const [flag, setFlag] = useState<Flag | null>(null);
   const [sort, setSort] = useState<SortState>({ key: "created", dir: "desc" });
@@ -117,14 +120,10 @@ const DashboardRoute = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [exportOpen]);
 
-  const statusCounts = useMemo(() => {
-    const counts = new Map<Stripe.Subscription.Status, number>();
-    for (const r of rows) counts.set(r.status, (counts.get(r.status) ?? 0) + 1);
-    return counts;
-  }, [rows]);
+  const statusCounts = useMemo(() => countByStatusFilter(rows), [rows]);
 
   const byStatus = useMemo(
-    () => rows.filter((r) => statuses.has(r.status)),
+    () => rows.filter((r) => statuses.has(statusFilterOf(r))),
     [rows, statuses]
   );
   const flagCounts = useMemo(
@@ -149,16 +148,16 @@ const DashboardRoute = () => {
   const filtersActive =
     search !== "" ||
     flag !== null ||
-    statuses.size !== DEFAULT_EXPORT_STATUSES.length ||
-    !DEFAULT_EXPORT_STATUSES.every((s) => statuses.has(s));
+    statuses.size !== DEFAULT_STATUS_FILTERS.length ||
+    !DEFAULT_STATUS_FILTERS.every((s) => statuses.has(s));
 
   const resetFilters = () => {
     setSearch("");
     setFlag(null);
-    setStatuses(new Set(DEFAULT_EXPORT_STATUSES));
+    setStatuses(new Set(DEFAULT_STATUS_FILTERS));
   };
 
-  const toggleStatus = (s: Stripe.Subscription.Status, only: boolean) =>
+  const toggleStatus = (s: StatusFilter, only: boolean) =>
     setStatuses((prev) => {
       if (only) return new Set([s]);
       const next = new Set(prev);
@@ -281,19 +280,19 @@ const DashboardRoute = () => {
         </InputGroup>
 
         <HStack gap={1.5} wrap='wrap'>
-          {ALL_STATUSES.filter((s) => statusCounts.has(s)).map((s) => {
+          {ALL_STATUS_FILTERS.filter((s) => statusCounts.has(s)).map((s) => {
             const on = statuses.has(s);
             return (
               <Tooltip key={s} content='Clic : afficher/masquer · Alt+clic : uniquement ce statut'>
                 <Button
                   size='xs'
                   variant={on ? "subtle" : "outline"}
-                  colorPalette={on ? STATUS_META[s].color : "gray"}
+                  colorPalette={on ? STATUS_FILTER_META[s].color : "gray"}
                   opacity={on ? 1 : 0.6}
                   textDecoration={on ? undefined : "line-through"}
                   onClick={(e) => toggleStatus(s, e.altKey)}
                 >
-                  {STATUS_META[s].label}
+                  {STATUS_FILTER_META[s].label}
                   <Text as='span' fontWeight='normal'>
                     {nf.format(statusCounts.get(s) ?? 0)}
                   </Text>

@@ -100,10 +100,58 @@ export const ALL_STATUSES = (
   Object.keys(STATUS_META) as Stripe.Subscription.Status[]
 ).sort((a, b) => STATUS_META[a].order - STATUS_META[b].order);
 
+/* ------------------------------------------------------------------ */
+/* Filtres de statut (sélecteur tableau + export)                      */
+/* Les annulés sont scindés en "avec adresse" / "sans adresse".        */
+/* ------------------------------------------------------------------ */
+
+export type StatusFilter =
+  | Exclude<Stripe.Subscription.Status, "canceled">
+  | "canceled_with_address"
+  | "canceled_no_address";
+
+export const statusFilterOf = (row: SubscriptionRow): StatusFilter =>
+  row.status === "canceled"
+    ? row.hasAddress
+      ? "canceled_with_address"
+      : "canceled_no_address"
+    : row.status;
+
+export const STATUS_FILTER_META: Record<
+  StatusFilter,
+  { label: string; color: string; order: number }
+> = {
+  active: STATUS_META.active,
+  trialing: STATUS_META.trialing,
+  past_due: STATUS_META.past_due,
+  unpaid: STATUS_META.unpaid,
+  paused: STATUS_META.paused,
+  incomplete: STATUS_META.incomplete,
+  incomplete_expired: STATUS_META.incomplete_expired,
+  canceled_with_address: { label: "Annulé avec adresse", color: "red", order: 7 },
+  canceled_no_address: { label: "Annulé sans adresse", color: "red", order: 8 },
+};
+
+export const ALL_STATUS_FILTERS = (
+  Object.keys(STATUS_FILTER_META) as StatusFilter[]
+).sort((a, b) => STATUS_FILTER_META[a].order - STATUS_FILTER_META[b].order);
+
+export const isCanceledFilter = (s: StatusFilter) =>
+  s === "canceled_with_address" || s === "canceled_no_address";
+
 /** Par défaut : tout sauf les annulés (même règle que l'export). */
-export const DEFAULT_EXPORT_STATUSES = ALL_STATUSES.filter(
-  (s) => s !== "canceled"
+export const DEFAULT_STATUS_FILTERS = ALL_STATUS_FILTERS.filter(
+  (s) => !isCanceledFilter(s)
 );
+
+export const countByStatusFilter = (rows: SubscriptionRow[]) => {
+  const counts = new Map<StatusFilter, number>();
+  for (const r of rows) {
+    const k = statusFilterOf(r);
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  return counts;
+};
 
 export const stripeDashboardUrl = (row: SubscriptionRow) =>
   `https://dashboard.stripe.com/${row.livemode ? "" : "test/"}subscriptions/${row.id}`;
